@@ -57,6 +57,8 @@ RISCV_STRIP   ?= $(RISCV_PREFIX)llvm-strip
 
 # Use gcc to compile scalar riscv-tests
 RISCV_CC_GCC  ?= $(GCC_INSTALL_DIR)/bin/$(RISCV_TARGET)-gcc
+RISCV_OBJCOPY_GCC  ?= $(GCC_INSTALL_DIR)/bin/$(RISCV_TARGET)-objcopy
+RISCV_OBJDUMP_GCC  ?= $(GCC_INSTALL_DIR)/bin/$(RISCV_TARGET)-objdump
 
 # Benchmark with spike
 spike_env_dir ?= $(ARA_DIR)/apps/riscv-tests

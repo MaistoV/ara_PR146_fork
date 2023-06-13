@@ -178,4 +178,4 @@ riscv_tests:
 .PHONY: clean
 
 clean:
-	rm -rf $(INSTALL_DIR)
+	# rm -rf $(INSTALL_DIR)

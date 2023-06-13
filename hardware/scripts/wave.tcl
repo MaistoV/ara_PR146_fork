@@ -12,3 +12,9 @@ do ../scripts/wave_core.tcl
 
 # Add Ara's waveforms
 do ../scripts/wave_ara.tcl
+
+# Add Ara System waveforms
+add wave -noupdate -group system  /ara_tb/dut/i_ara_soc/i_system/*
+
+# Add SoC waveforms
+add wave -noupdate -group soc  /ara_tb/dut/i_ara_soc/*

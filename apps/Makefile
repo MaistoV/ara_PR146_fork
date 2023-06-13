@@ -103,6 +103,15 @@ bin/$1: $1/data.S.o $(addsuffix .o, $(shell find $(1) -name "*.c" -o -name "*.S"
 endef
 $(foreach app,$(APPS),$(eval $(call app_compile_template,$(app))))
 
+# Boot ROM
+.PHONY: bootrom
+bootrom: bin/ara_bootrom.o
+bin/ara_bootrom.o: common/bootrom.S linker_script
+	mkdir -p bin/
+	$(RISCV_CC_GCC) $(RISCV_CCFLAGS_GCC) $(RISCV_LDFLAGS_GCC) -o $(basename $@).o $< -T$(CURDIR)/common/link.ld
+	$(RISCV_OBJCOPY_GCC) -j .bootcode $(basename $@).o
+	$(RISCV_OBJDUMP_GCC) -D $(basename $@).o > $(basename $@).dump
+
 # Make the RISC-V tests
 riscv_tests: $(CVA6_BINARIES) $(ARA_BINARIES)
 

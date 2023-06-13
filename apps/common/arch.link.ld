@@ -6,6 +6,7 @@ ENTRY(_start)
 
 MEMORY {
   L2 : ORIGIN = 0x80000000, LENGTH = 0x02000000
+  BROM (R): ORIGIN = 0x00050000, LENGTH = 0x00001000
 }
 
 /*
@@ -50,6 +51,13 @@ SECTIONS {
   } > L2
 
   .comment : ALIGN(ALIGNMENT) { *(.comment) } > L2
+
+  .bootcode : {
+    *(.bootcode)
+  } > BROM
+
+  __boot_addr = ORIGIN(BROM);
+  __l2_start = ORIGIN(L2);
 
   eoc_address_reg        = 0xD0000000;
   dram_start_address_reg = 0xD0000008;

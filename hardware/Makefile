@@ -122,6 +122,19 @@ bender:
 apply-patches: patches
 	cd deps/tech_cells_generic && git apply ../../patches/0001-tech-cells-generic-sram.patch
 
+# Boot ROM
+.PHONY: bootrom
+bootrom: src/ara_bootrom.sv
+
+# Same as ara_soc module (see ara_soc.sv and ara_soc_jtag.sv)
+# AxiNarrowDataWidth := 64
+src/ara_bootrom.sv: ../apps/common/bootrom.S
+	@echo "Compile the bootrom"
+	make -C ../apps bootrom
+	@echo "Generate the bootrom SV"
+	cd src; ../scripts/generate_bootrom.py --sv --output ara_bootrom --datawidth $$(($(nr_lanes) * 32))  ../../apps/bin/ara_bootrom.o
+	@echo "Generated file in $(shell pwd)/src/ara_bootrom.sv"
+
 # Library
 .PHONY: lib
 lib: $(buildpath) $(buildpath)/$(library)
@@ -129,14 +142,18 @@ $(buildpath)/$(library):
 	cd $(buildpath) && $(questa_cmd) vlib $(library) && $(questa_cmd) vmap $(library) $(library)
 
 # Compilation
+bender_targets_vsim := -t rtl -t asic -t ara_test -t cva6_test 
+ifeq ($(jtag), 1)
+  bender_targets_vsim += -t ara_jtag
+endif
 .PHONY: compile
-compile: dpi lib $(buildpath) bender $(buildpath)/compile_$(config).tcl
+compile: dpi lib $(buildpath) bender $(buildpath)/compile_$(config).tcl src/ara_bootrom.sv
 $(buildpath)/compile_$(config).tcl: $(config_file) Makefile ../Bender.yml $(shell find src -type f) $(shell find ../config -type f) $(shell find include -type f) $(shell find tb -type f) $(shell find deps -type f)
-	./bender script vsim --vlog-arg="$(vlog_args)" -t rtl -t asic -t ara_test -t cva6_test $(bender_defs) > $(buildpath)/compile_$(config).tcl
+	./bender script vsim --vlog-arg="$(vlog_args)" $(bender_targets_vsim) $(bender_defs) > $(buildpath)/compile_$(config).tcl
 	echo "exit" >> $(buildpath)/compile_$(config).tcl
 	cd $(buildpath) && $(questa_cmd) vsim -work $(library) -c -do compile_$(config).tcl
-	# Remove the file if compilation did not succeed
-	if [ `cat $(buildpath)/transcript | grep "\*\* Error" | wc -l` -ne 0 ]; then rm $(buildpath)/compile_$(config).tcl; fi
+# Remove the file if compilation did not succeed
+# if [ `cat $(buildpath)/transcript | grep "\*\* Error" | wc -l` -ne 0 ]; then rm $(buildpath)/compile_$(config).tcl; fi
 
 # Simulation
 .PHONY: sim
@@ -159,12 +176,16 @@ include $(APPS_DIR)/common/riscv_tests.mk
 tests := $(ara_tests) $(cva6_tests)
 
 # Verilator
+bender_targets_verilator := --t rtl -t ara_test -t cva6_test -t verilator 
+ifeq ($(jtag), 1)
+  bender_targets_verilator += -t ara_jtag
+endif
 .PHONY: verilate
 verilate: $(buildpath) bender $(veril_library)/V$(veril_top)
 
 $(veril_library)/V$(veril_top): $(config_file) Makefile ../Bender.yml $(shell find src -type f) $(shell find ../config -type f) $(shell find include -type f) $(shell find tb -type f) $(shell find deps -type f)
 	rm -rf $(veril_library); mkdir -p $(veril_library)
-	./bender script verilator -t rtl -t ara_test -t cva6_test -t verilator $(bender_defs) > $(veril_library)/bender_script_$(config)
+	./bender script verilator $(bender_defs) $(bender_targets_verilator) > $(veril_library)/bender_script_$(config)
 # Verilate the design
 	$(veril_path)/verilator -f $(veril_library)/bender_script_$(config)           \
   -GNrLanes=$(nr_lanes)                                                         \
@@ -241,3 +262,4 @@ $(buildpath)/$(dpi_library)/ara_dpi.so: $(dpi)
 clean:
 	rm -rf $(buildpath)
 	rm -f bender
+	rm -rf src/ara_bootrom.sv ../apps/bin/ara_bootrom.o ../apps/bin/ara_bootrom.dump

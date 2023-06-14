@@ -143,7 +143,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   typedef logic [AxiNarrowStrbWidth-1 : 0] axi_narrow_strb_t;
   typedef logic [AxiPeriphIdWidth-1   : 0] axi_periph_id_t;
   typedef logic [AxiSocIdWidth-1      : 0] axi_soc_id_t;
-  typedef logic [AxiSysIdWidth-1      : 0] axi_sys_id_t;
+  typedef logic [AxiSocIdWidth-1      : 0] axi_sys_id_t;
   typedef logic [AxiCoreIdWidth-1     : 0] axi_core_id_t;
 
   // AXI Typedefs

@@ -9,10 +9,12 @@ package:
     - "Vincenzo Maisto <vincenzo.maisto2@unina.it>"
 
 dependencies:
-  axi:                { git: "https://github.com/pulp-platform/axi.git",                version: 0.38.0 }
-  common_cells:       { git: "https://github.com/pulp-platform/common_cells.git",       version: 1.29.0 }
-  cva6:               { git: "https://github.com/pulp-platform/cva6.git",               rev: acc_port   }
-  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.2.1  }
+  # NOTE: This is not used for configuration management in the ARA project
+  #       Instead, version control is done with git submodules
+  axi:                { git: "https://github.com/pulp-platform/axi.git",                version: 0.0 }
+  common_cells:       { git: "https://github.com/pulp-platform/common_cells.git",       version: 0.0 }
+  cva6:               { git: "https://github.com/pulp-platform/cva6.git",               version: 0.0 }
+  tech_cells_generic: { git: "https://github.com/pulp-platform/tech_cells_generic.git", version: 0.0 }
 
 workspace:
   checkout_dir: "hardware/deps"
@@ -26,9 +28,14 @@ sources:
     - hardware/include/rvv_pkg.sv
     - hardware/include/ara_pkg.sv
 
+    # For CVA6 caches, final reference should be cva6/common/local/util/sram.sv
+    # NOTE: this needs to go once CVA6 is updated
+    - hardware/deps/cva6/src/util/sram.sv 
+    # Obsolete
+    # - hardware/src/axi_to_mem.sv 
+
     # Sources
-    # Level 1
-    - hardware/src/axi_to_mem.sv # Obsolete
+    # Level 1    
     - hardware/src/ctrl_registers.sv
     - hardware/src/cva6_accel_first_pass_decoder.sv
     - hardware/src/ara_dispatcher.sv
@@ -71,6 +78,9 @@ sources:
 
     - target: ara_test
       files:
+        # NOTE: Avoid target cva6_test which will cause conflicts
+        #       This needs to go once CVA6 is updated
+        - hardware/deps/cva6/tb/common/mock_uart.sv # for simulation
         - target: not(ara_jtag)
           files:
           # Level 1
@@ -88,6 +98,10 @@ sources:
     - target: spyglass
       files:
         - hardware/spyglass/src/ara_soc_wrap.sv
+
+    - target: all(fpga, xilinx)
+      files:
+        - fpga/src/ara_xilinx.sv
 
     - target: ara_jtag
       files:

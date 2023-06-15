@@ -1,0 +1,18 @@
+# bender-generatead files
+scripts/add_sources.tcl
+
+# Vivado synthesis, pid files, journals and logs
+vivado*
+*jou
+*log
+*str
+work_fpga*
+.Xil/
+reports*/
+
+# Local working scripts
+*tmp*
+
+# Local backups
+backup*/
+backup*

@@ -11,6 +11,7 @@ package:
 dependencies:
   # NOTE: This is not used for configuration management in the ARA project
   #       Instead, version control is done with git submodules
+  apb_uart:           { git: "https://github.com/pulp-platform/apb_uart.git",           version: 0.0 }
   axi:                { git: "https://github.com/pulp-platform/axi.git",                version: 0.0 }
   common_cells:       { git: "https://github.com/pulp-platform/common_cells.git",       version: 0.0 }
   cva6:               { git: "https://github.com/pulp-platform/cva6.git",               version: 0.0 }
@@ -36,6 +37,7 @@ sources:
 
     # Sources
     # Level 1    
+    - hardware/src/ara_bootrom.sv
     - hardware/src/ctrl_registers.sv
     - hardware/src/cva6_accel_first_pass_decoder.sv
     - hardware/src/ara_dispatcher.sv
@@ -105,7 +107,6 @@ sources:
 
     - target: ara_jtag
       files:
-        - hardware/src/ara_bootrom.sv
         - hardware/jtag/src/ara_system_jtag.sv
         - hardware/jtag/src/ara_soc_jtag.sv
         - hardware/jtag/tb/ara_testharness_jtag.sv

@@ -32,3 +32,6 @@
 	path = toolchain/riscv-llvm
 	url = https://github.com/llvm/llvm-project.git
 	ignore = dirty
+[submodule "fpga/src/apb_uart"]
+	path = hardware/deps/apb_uart
+	url = git@github.com:pulp-platform/apb_uart.git

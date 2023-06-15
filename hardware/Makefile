@@ -120,6 +120,7 @@ bender:
 # Patches
 .PHONY: apply-patches
 apply-patches: patches
+	make -C jtag patch_cva6 bump_cva6_riscv_dbg
 	cd deps/tech_cells_generic && git apply ../../patches/0001-tech-cells-generic-sram.patch
 
 # Boot ROM

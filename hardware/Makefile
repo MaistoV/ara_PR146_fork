@@ -143,7 +143,8 @@ $(buildpath)/$(library):
 	cd $(buildpath) && $(questa_cmd) vlib $(library) && $(questa_cmd) vmap $(library) $(library)
 
 # Compilation
-bender_targets_vsim := -t rtl -t asic -t ara_test -t cva6_test 
+# bender_targets_vsim := -t rtl -t asic -t ara_test -t cva6_test -t tech_cells_generic_include_tc_sram
+bender_targets_vsim := -t rtl -t ara_test -t cva6_test -t tech_cells_generic_include_tc_sram
 ifeq ($(jtag), 1)
   bender_targets_vsim += -t ara_jtag
 endif
@@ -260,7 +261,9 @@ $(buildpath)/$(dpi_library)/ara_dpi.so: $(dpi)
 
 # Clean targets
 .PHONY: clean
-clean:
+clean: clean_bootrom
 	rm -rf $(buildpath)
 	rm -f bender
+
+clean_bootrom:
 	rm -rf src/ara_bootrom.sv ../apps/bin/ara_bootrom.o ../apps/bin/ara_bootrom.dump

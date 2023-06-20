@@ -28,11 +28,11 @@ $(eval $(call env_var_default, DEBUG			 , 0))
 
 # Dependant variables
 # Select Vivado run mode
-ifeq ($(DEBUG),1)
-	VIVADOFLAGS += -mode tcl
-else
-	VIVADOFLAGS += -mode batch
-endif
+# ifeq ($(DEBUG),1)
+# 	VIVADOFLAGS += -mode tcl
+# else
+VIVADOFLAGS += -mode batch
+# endif
 
 # Compute reducing ratio compared to the input 100MHz clock
 # NOTE: this is a temporary solution that uses a counter as
@@ -80,6 +80,9 @@ scripts/add_sources.tcl: bender
 	../hardware/bender script vivado $(bender_targets) $(bender_defs) > $@
 
 gen_bitstream: print_env scripts/add_sources.tcl #$(ips)
+	# Update bootrom data width
+	make -C ../hardware/ clean_bootrom bootrom ARA_CONFIGURATION=$(NR_LANES)_lanes
+	# Export variables and lauch synthesis script
 	$(foreach env_var, $(ENV_VARS), export $(env_var)=$($(env_var)); ) \
 	$(VIVADO) $(VIVADOFLAGS) -source scripts/run.tcl
 

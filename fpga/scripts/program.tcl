@@ -68,21 +68,27 @@ current_hw_device [get_hw_devices  ${occ_hw_device}]
 program_hw_devices [get_hw_devices ${occ_hw_device}]
 refresh_hw_device [get_hw_devices ${occ_hw_device}]
 
-puts "--------------------"
-set vios [get_hw_vios -of_objects [get_hw_devices ${occ_hw_device}]]
-puts "Done programming device, found [llength $vios] VIOS: "
-foreach vio $vios {
-    puts "- $vio : [get_hw_probes * -of_objects $vio]"
-}
-puts "--------------------"
+puts "Query the design"
+# Debug
+report_property -all [get_hw_targets]
+# Search for hw probes
+refresh_hw_device -update_hw_probes false [lindex [get_hw_devices ${occ_hw_device}] 0]
 
-proc occ_write_vio {regexp_vio regexp_probe val} {
-    global occ_hw_device
-    puts "\[occ_write_vio $regexp_vio $regexp_probe\]"
-    set vio_sys [get_hw_vios -of_objects [get_hw_devices ${occ_hw_device}] -regexp $regexp_vio]
-    set_property OUTPUT_VALUE $val [get_hw_probes -of_objects $vio_sys -regexp $regexp_probe]
-    commit_hw_vio [get_hw_probes -of_objects $vio_sys -regexp $regexp_probe]
-}
+# puts "--------------------"
+# set vios [get_hw_vios -of_objects [get_hw_devices ${occ_hw_device}]]
+# puts "Done programming device, found [llength $vios] VIOS: "
+# foreach vio $vios {
+#     puts "- $vio : [get_hw_probes * -of_objects $vio]"
+# }
+# puts "--------------------"
+
+# proc occ_write_vio {regexp_vio regexp_probe val} {
+#     global occ_hw_device
+#     puts "\[occ_write_vio $regexp_vio $regexp_probe\]"
+#     set vio_sys [get_hw_vios -of_objects [get_hw_devices ${occ_hw_device}] -regexp $regexp_vio]
+#     set_property OUTPUT_VALUE $val [get_hw_probes -of_objects $vio_sys -regexp $regexp_probe]
+#     commit_hw_vio [get_hw_probes -of_objects $vio_sys -regexp $regexp_probe]
+# }
 
 # Reset peripherals and CPU
 # occ_write_vio "hw_vio_1" ".*rst.*" 1

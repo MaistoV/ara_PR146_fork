@@ -101,7 +101,8 @@ module ara_xilinx import axi_pkg::*; import ara_pkg::*; #(
   // From ug974-vivado-ultrascale-libraries/IBUFDS
   // Clock buffer for differential clock
   // NOTE: this is not optimal though
-  IBUFDS IBUFDS_inst (
+  
+  IBUFDS i_IBUFDS (
     .O     ( soc_clk_100MHz  ),
     .I     ( clk_100MHz_p    ),
     .IB    ( clk_100MHz_n    )
@@ -109,15 +110,21 @@ module ara_xilinx import axi_pkg::*; import ara_pkg::*; #(
 
   // Clock divider
   // TODO: a clock wizard (clkwiz) would be a better choice here
-  clk_div #(
-    .RATIO    ( `CLOCK_RATIO )
-  ) i_clk_div (
-    .clk_i      ( soc_clk_100MHz ), // Clock
-    .rst_ni     ( rst_n          ), // Asynchronous reset active low
-    .testmode_i ( 1'b0           ), // testmode
-    .en_i       ( 1'b1           ), // enable clock divider
-    .clk_o      ( soc_clk        )  // divided clock out
-  );
+  clk_int_div #(                                            
+    .DIV_VALUE_WIDTH    ( $clog2(`CLOCK_RATIO +1) ),
+    .DEFAULT_DIV_VALUE  ( `CLOCK_RATIO            )                        
+  ) i_clk_int_div(                  
+    .clk_i          ( soc_clk_100MHz ), // Clock
+    .rst_ni         ( rst_n          ), // Asynchronous reset active low                     
+    .test_mode_en_i ( 1'b0           ), // testmode                
+    .en_i           ( 1'b1           ), // enable clock divider
+    .div_i          ( '1             ), // Ignored, use default value         
+    .div_valid_i    ( 1'b0           ), // Don't need runtime configurability, use default value                   
+    .div_ready_o    (                ), // Unused                                   
+    .clk_o          ( soc_clk        ), // divided clock out
+    .cycl_count_o   (                )  // Unused
+  );                                                     
+          
 
   //////////////////////
   //  Ara SoC         //

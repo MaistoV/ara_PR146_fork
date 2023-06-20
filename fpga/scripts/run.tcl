@@ -78,24 +78,11 @@ if { $EXT_JTAG } {
     set_property used_in_synthesis false [get_files "occamy_vcu128_impl_ext_jtag.xdc"]
 }
 
-# Suppress Synthesis warnings
-# Suppress synthesis WARNING: [Synth 8-1921] elaboration system task error violates IEEE 1800 syntax 
-# set_msg_config -id {[Synth 8-1921]} -suppress
-# # Suppress synthesis WARNING: [Synth 8-693] zero replication count - replication ignored
-# set_msg_config -id {[Synth 8-693]} -suppress
-# # Suppress WARNING: [Synth 8-7129] Port '...' in module shift_reg__parameterized0 is either unconnected or has no load
-# set_msg_config -id {[Synth 8-7129]} -suppress
-# # Suppress WARNING: [Synth 8-3332] Sequential element ('...') is unused and will be removed from module '...'.
-# set_msg_config -id {[Synth 8-3332]} -suppress
-# # Suppress WARNING: [Synth 8-3917] design '...' has port '...' driven by constant 0
-# set_msg_config -id {[Synth 8-3917]} -suppress
-# # Suppress WARNING: [Synth 8-4446] all outputs are unconnected for this instance and logic may be removed 
-# set_msg_config -id {[Synth 8-4446]} -suppress
-# # Suppress WARNING: [Synth 8-2898] ignoring assertion 
-# set_msg_config -id {[Synth 8-2898]} -suppress
-
-# reports
-exec mkdir -p ${work_dir}/reports_synth_1/
+# Cleanup reports
+exec mkdir -p  ${work_dir}/reports_synth_1/
+exec mkdir -p  ${work_dir}/reports_impl_1/
+exec rm    -rf ${work_dir}/reports_synth_1/*
+exec rm    -rf ${work_dir}/reports_impl_1/*
 
 # Stop here for RTL developement
 if { $::env(RTL_ONLY) == "1" } {
@@ -135,22 +122,9 @@ if { $::env(DEBUG) == "1" } {
     set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
 }
 
-launch_runs synth_1
+launch_runs synth_1 -verbose
 wait_on_run synth_1
 open_run synth_1
-
-# reports
-exec mkdir -p ${work_dir}/reports_synth_1/
-# Check for combinatorial loops
-create_drc_ruledeck ruledeck_1
-# Combinatorial Loop Alert
-add_drc_checks -ruledeck ruledeck_1 [get_drc_checks "LUTLP-1"] 
-# Add more checks ...
-# add_drc_checks -ruledeck ruledeck_1 [get_drc_checks ...      ] 
-report_drc  -ruledecks {ruledeck_1} -file ${work_dir}/reports_synth_1/$project.drc
-delete_drc_ruledeck ruledeck_1               
-# set drc_checks {"LUTLP-1"}
-# 
 
 check_timing -verbose                                                   -file ${work_dir}/reports_synth_1/$project.check_timing.rpt
 report_timing -max_paths 100 -nworst 100 -delay_type max -sort_by slack -file ${work_dir}/reports_synth_1/$project.timing_WORST_100.rpt
@@ -162,29 +136,25 @@ report_clock_interaction                                                -file ${
 if {$::env(SYNTH_ONLY) eq 1} {
     puts "SYNTH_ONLY=1, stop here for synthesis developement"
     start_gui
-    # exit
-    pause
+} else {
+    # set for RuntimeOptimized implementation
+    if {$::env(RUNTIME_OPTIMIZED) eq 1} {
+        set_property "steps.place_design.args.directive" "RuntimeOptimized" [get_runs impl_1]
+        set_property "steps.route_design.args.directive" "RuntimeOptimized" [get_runs impl_1]
+    }
+
+    launch_runs impl_1 -to_step write_bitstream -jobs 8 -verbose
+    wait_on_run impl_1
+    open_run impl_1
+
+    # output Verilog netlist + SDC for timing simulation
+    # write_verilog -force -mode funcsim ${work_dir}/${project}_funcsim.v
+    # write_verilog -force -mode timesim ${work_dir}/${project}_timesim.v
+    # write_sdf     -force ${work_dir}/${project}_timesim.sdf
+
+    # reports
+    check_timing -verbose                                                     -file ${work_dir}/reports_impl_1/${project}.check_timing.rpt
+    report_timing -max_paths 100 -nworst 100 -delay_type max -sort_by slack   -file ${work_dir}/reports_impl_1/${project}.timing_WORST_100.rpt
+    report_timing -nworst 1 -delay_type max -sort_by group                    -file ${work_dir}/reports_impl_1/${project}.timing.rpt
+    report_utilization -hierarchical -hierarchical_percentages                -file ${work_dir}/reports_impl_1/${project}.utilization.rpt
 }
-
-# set for RuntimeOptimized implementation
-if {$::env(RUNTIME_OPTIMIZED) eq 1} {
-    set_property "steps.place_design.args.directive" "RuntimeOptimized" [get_runs impl_1]
-    set_property "steps.route_design.args.directive" "RuntimeOptimized" [get_runs impl_1]
-}
-
-launch_runs impl_1 -to_step write_bitstream -jobs 8 -verbose
-wait_on_run impl_1
-open_run impl_1
-
-# output Verilog netlist + SDC for timing simulation
-# write_verilog -force -mode funcsim ${work_dir}/${project}_funcsim.v
-# write_verilog -force -mode timesim ${work_dir}/${project}_timesim.v
-# write_sdf     -force ${work_dir}/${project}_timesim.sdf
-
-# reports
-exec mkdir -p   ${work_dir}/reports_impl_1/
-exec rm -rf     ${work_dir}/reports_impl_1/*
-check_timing                                                              -file ${work_dir}/reports_impl_1/${project}.check_timing.rpt
-report_timing -max_paths 100 -nworst 100 -delay_type max -sort_by slack   -file ${work_dir}/reports_impl_1/${project}.timing_WORST_100.rpt
-report_timing -nworst 1 -delay_type max -sort_by group                    -file ${work_dir}/reports_impl_1/${project}.timing.rpt
-report_utilization -hierarchical -hierarchical_percentages                -file ${work_dir}/reports_impl_1/${project}.utilization.rpt

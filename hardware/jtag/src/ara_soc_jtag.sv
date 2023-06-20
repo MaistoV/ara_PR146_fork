@@ -41,6 +41,12 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     output logic [63:0] event_trigger_o,
     output logic [63:0] hw_cnt_en_o,
     // JTAG
+  `ifndef TARGET_BSCANE
+    // External JTAG:
+    // Not using "bscane" bender target for riscv-dbg
+    // Route out this ports to GPIOs
+    output logic        jtag_vdd_o,
+    output logic        jtag_gnd_o,
     input  logic        jtag_tck_i,
     input  logic        jtag_trst_ni,
     output logic        jtag_tdo_o,
@@ -48,6 +54,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     input  logic        jtag_tms_i,
     output logic        jtag_tdo_oe_o,
     output logic        dmactive_o,
+  `endif
     // Scan chain
     input  logic        scan_enable_i,
     input  logic        scan_data_i,
@@ -76,9 +83,9 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   //  ARA -(4)-->|         \                                     |          |--(6)---------> axi_dw_converter ----(6)------> axi2apb  ------------------------> out
   //             | axi_mux |-----(5)----> ara_system ------(5)-->|          |--(6)---------> axi_dw_converter ----(6)------> axi_to_axi_lite -----------------> ctrl_registers
   //  CVA6 -(4)->|_________/                                     | axi_xbar |--(6)---------> axi_dw_converter ----(6)------> axi_to_mem ----------------------> dm_top
-  //                                                             |          |--(6)-----------------------------------------> axi_to_mem ----------------------> bootrom
-  //  dm_top --> axi_from_mem ---(5)---> axi_dw_converter -(5)-->|          |--(6)-----------------------------------------> atop_filter -(6)--> axi_to_mem --> SRAM$
-  //                                                             |__________|--(6)-------------------------................------(?)--------------------------> DDR/HBM (TBD)
+  //                                                             |          |--(6)-----------------------------------------> axi_cut -----(6)--> axi_to_mem --> bootrom
+  //  dm_top --> axi_from_mem ---(5)---> axi_dw_converter -(5)-->|          |--(6)-----------------------------------------> atop_filter -(6)--> axi_to_mem --> SRAM
+  //                                                             |__________|--(6)-------------------------.???????????????------(?)--------------------------> DDR/HBM (TBD)
   //                        dm_mst_narrow                                     axi_slave_wide_axi
   //  
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,8 +95,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   //////////////////////
   // TODO: Add DDR/HBM ports and memory map
 
-  // Actually masters, but slaves on the crossbar, including Debug module
-  // NOTE: What does the word "actually" mean...?
+  // Bus masters, hence slaves on the crossbar
   typedef enum int unsigned {
     DM_master     = 0,
     AraAriane     = 1, // Muxed in ara_system
@@ -268,7 +274,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .NumBanks   ( 1                     ),
     .axi_req_t  ( axi_slave_wide_req_t  ),
     .axi_resp_t ( axi_slave_wide_resp_t )
-  ) i_axi_to_mem_bootrom (
+  ) i_bootrom_axi_to_mem (
     .clk_i       ( clk_i                            ),
     .rst_ni      ( rst_ni                           ),
     .axi_req_i   ( axi_slave_wide_axi_req [BOOTROM] ),
@@ -305,17 +311,17 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   axi_slave_wide_req_t  srammem_wide_axi_req_wo_atomics;
   axi_slave_wide_resp_t srammem_wide_axi_resp_wo_atomics;
   axi_atop_filter #(
-    .AxiIdWidth       ( AxiSlaveIdWidth   ),
-    .AxiMaxWriteTxns  ( 4                  ),
+    .AxiIdWidth       ( AxiSlaveIdWidth       ),
+    .AxiMaxWriteTxns  ( 4                     ),
     .axi_req_t        ( axi_slave_wide_req_t  ),
     .axi_resp_t       ( axi_slave_wide_resp_t )
   ) i_sram_mem_atop_filter (
-    .clk_i     ( clk_i                          ),
-    .rst_ni    ( rst_ni                         ),
-    .slv_req_i ( axi_slave_wide_axi_req  [SRAM] ),
-    .slv_resp_o( axi_slave_wide_axi_resp [SRAM] ),
-    .mst_req_o ( srammem_wide_axi_req_wo_atomics  ),
-    .mst_resp_i( srammem_wide_axi_resp_wo_atomics )
+    .clk_i      ( clk_i                            ),
+    .rst_ni     ( rst_ni                           ),
+    .slv_req_i  ( axi_slave_wide_axi_req  [SRAM]   ),
+    .slv_resp_o ( axi_slave_wide_axi_resp [SRAM]   ),
+    .mst_req_o  ( srammem_wide_axi_req_wo_atomics  ),
+    .mst_resp_i ( srammem_wide_axi_resp_wo_atomics )
   );
 
   logic                             sram_req;
@@ -333,7 +339,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .NumBanks   ( 1                     ),
     .axi_req_t  ( axi_slave_wide_req_t  ),
     .axi_resp_t ( axi_slave_wide_resp_t )
-  ) i_axi_to_mem_sram (
+  ) i_sram_axi_to_mem (
     .clk_i       ( clk_i                            ),
     .rst_ni      ( rst_ni                           ),
     .axi_req_i   ( srammem_wide_axi_req_wo_atomics  ),
@@ -384,14 +390,14 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .AXI4_ADDRESS_WIDTH( AxiAddrWidth       ),
     .AXI4_RDATA_WIDTH  ( AxiNarrowDataWidth ),
     .AXI4_WDATA_WIDTH  ( AxiNarrowDataWidth ),
-    .AXI4_ID_WIDTH     ( AxiSlaveIdWidth   ),
+    .AXI4_ID_WIDTH     ( AxiSlaveIdWidth    ),
     .AXI4_USER_WIDTH   ( AxiUserWidth       ),
     .BUFF_DEPTH_SLAVE  ( 2                  ),
     .APB_ADDR_WIDTH    ( 32                 )
   ) i_axi2apb_64_32_uart (
-    .ACLK      (clk_i                                ),
-    .ARESETn   (rst_ni                               ),
-    .test_en_i (1'b0                                 ),
+    .ACLK      (clk_i                                   ),
+    .ARESETn   (rst_ni                                  ),
+    .test_en_i (1'b0                                    ),
     .AWID_i    (axi_slave_narrow_axi_req[UART].aw.id    ),
     .AWADDR_i  (axi_slave_narrow_axi_req[UART].aw.addr  ),
     .AWLEN_i   (axi_slave_narrow_axi_req[UART].aw.len   ),
@@ -436,22 +442,22 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .RUSER_o   (axi_slave_narrow_axi_resp[UART].r.user  ),
     .RVALID_o  (axi_slave_narrow_axi_resp[UART].r_valid ),
     .RREADY_i  (axi_slave_narrow_axi_req[UART].r_ready  ),
-    .PENABLE   (uart_penable_o                       ),
-    .PWRITE    (uart_pwrite_o                        ),
-    .PADDR     (uart_paddr_o                         ),
-    .PSEL      (uart_psel_o                          ),
-    .PWDATA    (uart_pwdata_o                        ),
-    .PRDATA    (uart_prdata_i                        ),
-    .PREADY    (uart_pready_i                        ),
-    .PSLVERR   (uart_pslverr_i                       )
+    .PENABLE   ( uart_penable_o                         ),
+    .PWRITE    ( uart_pwrite_o                          ),
+    .PADDR     ( uart_paddr_o                           ),
+    .PSEL      ( uart_psel_o                            ),
+    .PWDATA    ( uart_pwdata_o                          ),
+    .PRDATA    ( uart_prdata_i                          ),
+    .PREADY    ( uart_pready_i                          ),
+    .PSLVERR   ( uart_pslverr_i                         )
   );
 
   axi_dw_converter #(
-    .AxiSlvPortDataWidth ( AxiWideDataWidth        ),
-    .AxiMstPortDataWidth ( AxiNarrowDataWidth      ),
-    .AxiAddrWidth        ( AxiAddrWidth            ),
-    .AxiIdWidth          ( AxiSlaveIdWidth        ),
-    .AxiMaxReads         ( 2                       ),
+    .AxiSlvPortDataWidth ( AxiWideDataWidth           ),
+    .AxiMstPortDataWidth ( AxiNarrowDataWidth         ),
+    .AxiAddrWidth        ( AxiAddrWidth               ),
+    .AxiIdWidth          ( AxiSlaveIdWidth            ),
+    .AxiMaxReads         ( 2                          ),
     .ar_chan_t           ( axi_slave_wide_ar_chan_t   ),
     .mst_r_chan_t        ( axi_slave_narrow_r_chan_t  ),
     .slv_r_chan_t        ( axi_slave_wide_r_chan_t    ),
@@ -491,33 +497,33 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .full_resp_t    ( axi_slave_narrow_resp_t      ),
     .lite_req_t     ( axi_slave_narrow_lite_req_t  ),
     .lite_resp_t    ( axi_slave_narrow_lite_resp_t )
-  ) i_axi_to_axi_lite (
-    .clk_i     ( clk_i                            ),
-    .rst_ni    ( rst_ni                           ),
-    .test_i    ( 1'b0                             ),
-    .slv_req_i ( axi_slave_narrow_axi_req  [CTRL] ),
-    .slv_resp_o( axi_slave_narrow_axi_resp [CTRL] ),
-    .mst_req_o ( axi_lite_ctrl_registers_req      ),
-    .mst_resp_i( axi_lite_ctrl_registers_resp     )
+  ) i_ctrl_registers_axi_to_axi_lite (
+    .clk_i      ( clk_i                            ),
+    .rst_ni     ( rst_ni                           ),
+    .test_i     ( 1'b0                             ),
+    .slv_req_i  ( axi_slave_narrow_axi_req  [CTRL] ),
+    .slv_resp_o ( axi_slave_narrow_axi_resp [CTRL] ),
+    .mst_req_o  ( axi_lite_ctrl_registers_req      ),
+    .mst_resp_i ( axi_lite_ctrl_registers_resp     )
   );
 
   ctrl_registers #(
-    .DRAMBaseAddr   ( SRAMBase                     ),
-    .DRAMLength     ( SRAMLength                   ),
-    .DataWidth      ( AxiNarrowDataWidth           ),
-    .AddrWidth      ( AxiAddrWidth                 ),
-    .axi_lite_req_t ( axi_slave_narrow_lite_req_t  ),
-    .axi_lite_resp_t( axi_slave_narrow_lite_resp_t )
+    .DRAMBaseAddr    ( SRAMBase                     ),
+    .DRAMLength      ( SRAMLength                   ),
+    .DataWidth       ( AxiNarrowDataWidth           ),
+    .AddrWidth       ( AxiAddrWidth                 ),
+    .axi_lite_req_t  ( axi_slave_narrow_lite_req_t  ),
+    .axi_lite_resp_t ( axi_slave_narrow_lite_resp_t )
   ) i_ctrl_registers (
-    .clk_i                ( clk_i                        ),
-    .rst_ni               ( rst_ni                       ),
-    .axi_lite_slave_req_i ( axi_lite_ctrl_registers_req  ),
-    .axi_lite_slave_resp_o( axi_lite_ctrl_registers_resp ),
-    .hw_cnt_en_o          ( hw_cnt_en_o                  ),
-    .dram_base_addr_o     ( dram_base_addr_o             ),
-    .dram_end_addr_o      ( dram_end_addr_o              ),
-    .exit_o               ( exit_o                       ),
-    .event_trigger_o      ( event_trigger_o              )
+    .clk_i                 ( clk_i                        ),
+    .rst_ni                ( rst_ni                       ),
+    .axi_lite_slave_req_i  ( axi_lite_ctrl_registers_req  ),
+    .axi_lite_slave_resp_o ( axi_lite_ctrl_registers_resp ),
+    .hw_cnt_en_o           ( hw_cnt_en_o                  ),
+    .dram_base_addr_o      ( dram_base_addr_o             ),
+    .dram_end_addr_o       ( dram_end_addr_o              ),
+    .exit_o                ( exit_o                       ),
+    .event_trigger_o       ( event_trigger_o              )
   );
 
   axi_dw_converter #(
@@ -676,13 +682,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   //////////////////
 
   // DM Parameters
-  localparam hartinfo_t          HARTINFO = '{  zero1:        8'h0,
-                                                nscratch:     4'h2,
-                                                zero0:        3'b0,
-                                                dataaccess:   1'b1,
-                                                datasize:     dm::DataCount,
-                                                dataaddr:     dm::DataAddr
-                                              };
+  localparam hartinfo_t          HARTINFO = ariane_pkg::DebugHartInfo;
   localparam logic [NrHarts-1:0] SELECTABLE_HARTS = '{1'b1}; // All available
   // For ETX_JTAG, unused with BSCANE2
   localparam logic [15:0]        PartNumber = 2;
@@ -733,6 +733,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .dmi_resp_valid_i     ( dm_dmi_resp_valid ),
     .dmi_rst_no           ( dm_dmi_rst_n      ), 
     // JTAG interface
+    // Ifdef TARGET_BSCANE, these signals will be implicit
     .tck_i                ( jtag_tck_i        ),
     .tms_i                ( jtag_tms_i        ),
     .trst_ni              ( jtag_trst_ni      ), 
@@ -751,7 +752,7 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .SelectableHarts  ( SELECTABLE_HARTS   )
   ) i_dm_top (
     .clk_i             ( clk_i             ),
-    .rst_ni            ( jtag_trst_ni      ), 
+    .rst_ni            ( rst_ni            ), 
     .testmode_i        ( 1'b0              ),
     .ndmreset_o        (                   ), // Open
     .dmactive_o        ( dmactive_o        ), 
@@ -850,20 +851,22 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
   // DM slave to SoC wide bus
   //////////////////////////////////
 
-  // AxiNarrowDataWidth to DM slave 
+  // AxiNarrowDataWidth (cut) to DM slave 
+  axi_slave_narrow_req_t  axi_slave_narrow_axi_req_cut;
+  axi_slave_narrow_resp_t axi_slave_narrow_axi_resp_cut;
   axi_to_mem #(
-    .AddrWidth  ( AxiAddrWidth         ), 
-    .DataWidth  ( AxiNarrowDataWidth   ), 
-    .IdWidth    ( AxiSlaveIdWidth     ), 
-    .NumBanks   ( 1                    ), 
+    .AddrWidth  ( AxiAddrWidth            ), 
+    .DataWidth  ( AxiNarrowDataWidth      ), 
+    .IdWidth    ( AxiSlaveIdWidth         ), 
+    .NumBanks   ( 1                       ), 
     .axi_req_t  ( axi_slave_narrow_req_t  ), 
     .axi_resp_t ( axi_slave_narrow_resp_t )
   ) i_dm_slave_axi_to_mem (
     .clk_i        ( clk_i                                ),
     .rst_ni       ( rst_ni                               ),
     .busy_o       (                                      ), // Open ?
-    .axi_req_i    ( axi_slave_narrow_axi_req  [DM_slave] ),
-    .axi_resp_o   ( axi_slave_narrow_axi_resp [DM_slave] ),
+    .axi_req_i    ( axi_slave_narrow_axi_req_cut         ),
+    .axi_resp_o   ( axi_slave_narrow_axi_resp_cut        ),
     .mem_req_o    ( dm_slave_req                         ),
     .mem_gnt_i    ( dm_slave_req                         ),
     .mem_addr_o   ( dm_slave_addr                        ),
@@ -875,31 +878,57 @@ module ara_soc import axi_pkg::*; import ara_pkg::*; import dm::*; #(
     .mem_rdata_i  ( dm_slave_rdata                       )
   );
 
+  // AxiNarrowDataWidth to AxiNarrowDataWidth (cut)  
+  // Cut combinatorial path caused by slv_req_i.w_valid and slv_resp_o.w_ready
+  // as discussed in https://github.com/pulp-platform/axi/issues/195
+  // NOTE: The path involves:
+  //  - i_dm_slave_axi_dwc.mst_req_o[b_ready] 
+  //  - i_dm_slave_axi_to_mem.axi_req_i[b_ready]
+  //  - gen_downsizer.i_axi_downsizer
+  //  - i_dm_slave_axi_to_mem.axi_resp_o[w_ready]
+  //  - i_dm_slave_axi_dwc.mst_resp_i[w_ready]
+  axi_cut #(
+    .ar_chan_t   ( axi_slave_narrow_ar_chan_t ),
+    .aw_chan_t   ( axi_slave_narrow_aw_chan_t ),
+    .b_chan_t    ( axi_slave_narrow_b_chan_t  ),
+    .r_chan_t    ( axi_slave_narrow_r_chan_t  ),
+    .w_chan_t    ( axi_slave_narrow_w_chan_t  ),
+    .axi_req_t   ( axi_slave_narrow_req_t     ),
+    .axi_resp_t  ( axi_slave_narrow_resp_t    )
+  ) i_dm_slave_cut (
+    .clk_i       ( clk_i                                ),
+    .rst_ni      ( rst_ni                               ),
+    .slv_req_i   ( axi_slave_narrow_axi_req_cut         ),
+    .slv_resp_o  ( axi_slave_narrow_axi_resp_cut        ),
+    .mst_req_o   ( axi_slave_narrow_axi_req  [DM_slave] ),
+    .mst_resp_i  ( axi_slave_narrow_axi_resp [DM_slave] )
+  );
+
   // DM slave AXI AxiWideDataWidth to AxiNarrowDataWidth
   axi_dw_converter #(
-    .AxiSlvPortDataWidth ( AxiWideDataWidth        ),
-    .AxiMstPortDataWidth ( AxiNarrowDataWidth      ),
-    .AxiAddrWidth        ( AxiAddrWidth            ),
-    .AxiIdWidth          ( AxiSlaveIdWidth        ),
-    .AxiMaxReads         ( 2                       ),
-    .ar_chan_t           ( axi_slave_wide_ar_chan_t   ),
+    .AxiSlvPortDataWidth ( AxiWideDataWidth           ),
+    .AxiMstPortDataWidth ( AxiNarrowDataWidth         ),
+    .AxiAddrWidth        ( AxiAddrWidth               ),
+    .AxiIdWidth          ( AxiSlaveIdWidth            ),
+    .AxiMaxReads         ( 2                          ),
     .mst_r_chan_t        ( axi_slave_narrow_r_chan_t  ),
     .slv_r_chan_t        ( axi_slave_wide_r_chan_t    ),
-    .aw_chan_t           ( axi_slave_narrow_aw_chan_t ),
-    .b_chan_t            ( axi_slave_wide_b_chan_t    ),
     .mst_w_chan_t        ( axi_slave_narrow_w_chan_t  ),
     .slv_w_chan_t        ( axi_slave_wide_w_chan_t    ),
+    .ar_chan_t           ( axi_slave_wide_ar_chan_t   ),
+    .aw_chan_t           ( axi_slave_wide_aw_chan_t   ),
+    .b_chan_t            ( axi_slave_wide_b_chan_t    ),
     .axi_mst_req_t       ( axi_slave_narrow_req_t     ),
     .axi_mst_resp_t      ( axi_slave_narrow_resp_t    ),
     .axi_slv_req_t       ( axi_slave_wide_req_t       ),
     .axi_slv_resp_t      ( axi_slave_wide_resp_t      )
-  ) i_axi_dm_slave_dwc (
-    .clk_i      ( clk_i                              ),
-    .rst_ni     ( rst_ni                             ),
-    .slv_req_i  ( axi_slave_wide_axi_req     [DM_slave] ),
-    .slv_resp_o ( axi_slave_wide_axi_resp    [DM_slave] ),
-    .mst_req_o  ( axi_slave_narrow_axi_req   [DM_slave] ),
-    .mst_resp_i ( axi_slave_narrow_axi_resp  [DM_slave] )
+  ) i_dm_slave_axi_dwc (
+    .clk_i      ( clk_i                                ),
+    .rst_ni     ( rst_ni                               ),
+    .slv_req_i  ( axi_slave_wide_axi_req    [DM_slave] ),
+    .slv_resp_o ( axi_slave_wide_axi_resp   [DM_slave] ),
+    .mst_req_o  ( axi_slave_narrow_axi_req  [DM_slave] ),
+    .mst_resp_i ( axi_slave_narrow_axi_resp [DM_slave] )
   );
 
   //////////////////

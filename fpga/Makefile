@@ -7,9 +7,7 @@ VIVADOFLAGS ?= -nojournal
 # Most of this is developement-oriented
 ENV_VARS :=  
 define env_var_default
-	ifndef $(1)
-		$1 := $2
-	endif
+	$1 ?= $2
 	ENV_VARS += $1 
 endef
 $(eval $(call env_var_default, project			 , ara_xilinx))

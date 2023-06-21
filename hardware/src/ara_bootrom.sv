@@ -14,7 +14,7 @@
 
 module ara_bootrom #(
   /* Automatically generated. DO NOT CHANGE! */
-  parameter int unsigned DataWidth = 128,
+  parameter int unsigned DataWidth = 512,
   parameter int unsigned AddrWidth = 64
 ) (
   input  logic                 clk_i,
@@ -22,19 +22,18 @@ module ara_bootrom #(
   input  logic [AddrWidth-1:0] addr_i,
   output logic [DataWidth-1:0] rdata_o
 );
-  localparam int RomSize = 2;
+  localparam int RomSize = 1;
   localparam int AddrBits = RomSize > 1 ? $clog2(RomSize) : 1;
 
   const logic [RomSize-1:0][DataWidth-1:0] mem = {
-    128'h00000000_00008502_00010001_00010001,
-    128'h00010001_00010001_00050513_7ffb0517
+    512'h00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000_00008502_00010001_00010001_00010001_00010001_00050513_7ffb0517
   };
 
   logic [AddrBits-1:0] addr_q;
 
   always_ff @(posedge clk_i) begin
     if (req_i) begin
-      addr_q <= addr_i[AddrBits-1+4:4];
+      addr_q <= addr_i[AddrBits-1+6:6];
     end
   end
 

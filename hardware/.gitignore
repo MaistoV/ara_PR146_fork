@@ -1,1 +1,3 @@
 bender
+# Ignore generated bootrom file
+hardware/src/ara_bootrom.sv

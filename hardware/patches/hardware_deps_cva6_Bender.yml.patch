@@ -1,8 +1,14 @@
 diff --git a/Bender.yml b/Bender.yml
-index 159d21ee..fe45719a 100644
+index 159d21ee..945beeb3 100644
 --- a/Bender.yml
 +++ b/Bender.yml
-@@ -20,9 +20,9 @@ sources:
+@@ -15,14 +15,14 @@ sources:
+     files:
+     # Packages
+     - include/riscv_pkg.sv
+-    - src/riscv-dbg/src/dm_pkg.sv
++    # - src/riscv-dbg/src/dm_pkg.sv
+     - src/fpu/src/fpnew_pkg.sv
      - include/ariane_pkg.sv
      - include/std_cache_pkg.sv
      - include/wt_cache_pkg.sv
@@ -15,7 +21,7 @@ index 159d21ee..fe45719a 100644
      - include/ariane_axi_pkg.sv
      - src/fpu/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
      # Stand-alone source files
-@@ -141,10 +141,10 @@ sources:
+@@ -141,63 +141,64 @@ sources:
      - src/axi_riscv_atomics/src/axi_riscv_lrsc.sv
      - src/axi_riscv_atomics/src/axi_riscv_atomics_wrap.sv
      - src/axi_mem_if/src/axi2mem.sv
@@ -23,17 +29,14 @@ index 159d21ee..fe45719a 100644
 -    - src/rv_plic/rtl/rv_plic_gateway.sv
 -    - src/rv_plic/rtl/plic_regmap.sv
 -    - src/rv_plic/rtl/plic_top.sv
-+    # - src/rv_plic/rtl/rv_plic_target.sv
-+    # - src/rv_plic/rtl/rv_plic_gateway.sv
-+    # - src/rv_plic/rtl/plic_regmap.sv
-+    # - src/rv_plic/rtl/plic_top.sv
-     - src/riscv-dbg/src/dmi_cdc.sv
-     - src/riscv-dbg/src/dmi_jtag.sv
-     - src/riscv-dbg/src/dmi_jtag_tap.sv
-@@ -153,51 +153,52 @@ sources:
-     - src/riscv-dbg/src/dm_sba.sv
-     - src/riscv-dbg/src/dm_top.sv
-     - src/riscv-dbg/debug_rom/debug_rom.sv
+-    - src/riscv-dbg/src/dmi_cdc.sv
+-    - src/riscv-dbg/src/dmi_jtag.sv
+-    - src/riscv-dbg/src/dmi_jtag_tap.sv
+-    - src/riscv-dbg/src/dm_csrs.sv
+-    - src/riscv-dbg/src/dm_mem.sv
+-    - src/riscv-dbg/src/dm_sba.sv
+-    - src/riscv-dbg/src/dm_top.sv
+-    - src/riscv-dbg/debug_rom/debug_rom.sv
 -    - src/register_interface/src/apb_to_reg.sv
 -    - src/common_cells/src/deprecated/generic_fifo.sv
 -    - src/common_cells/src/deprecated/pulp_sync.sv
@@ -48,7 +51,19 @@ index 159d21ee..fe45719a 100644
 -    - src/util/axi_slave_connect.sv
 -    - src/util/axi_master_connect_rev.sv
 -    - src/util/axi_slave_connect_rev.sv
-+    - src/riscv-dbg/debug_rom/debug_rom_one_scratch.sv
++    # - src/rv_plic/rtl/rv_plic_target.sv
++    # - src/rv_plic/rtl/rv_plic_gateway.sv
++    # - src/rv_plic/rtl/plic_regmap.sv
++    # - src/rv_plic/rtl/plic_top.sv
++    # - src/riscv-dbg/src/dmi_cdc.sv
++    # - src/riscv-dbg/src/dmi_jtag.sv
++    # - src/riscv-dbg/src/dmi_jtag_tap.sv
++    # - src/riscv-dbg/src/dm_csrs.sv
++    # - src/riscv-dbg/src/dm_mem.sv
++    # - src/riscv-dbg/src/dm_sba.sv
++    # - src/riscv-dbg/src/dm_top.sv
++    # - src/riscv-dbg/debug_rom/debug_rom.sv
++    # - src/riscv-dbg/debug_rom/debug_rom_one_scratch.sv
 +    # - src/register_interface/src/apb_to_reg.sv
 +    # - src/common_cells/src/deprecated/generic_fifo.sv
 +    # - src/common_cells/src/deprecated/pulp_sync.sv

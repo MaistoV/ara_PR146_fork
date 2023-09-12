@@ -19,7 +19,7 @@
 #endif // __linux__
 
 // Return the current value of the cycle counter
-static inline int64_t get_cycle_count() {
+int64_t get_cycle_count() {
   int64_t cycle_count;
   // The fence is needed to be sure that Ara is idle, and it is not performing
   // the last vector stores when we read mcycle with stop_timer()
@@ -37,26 +37,26 @@ static inline int64_t get_cycle_count() {
 #define HW_CNT_READY hw_cnt_en_reg = 1;
 #define HW_CNT_NOT_READY hw_cnt_en_reg = 0;
 // Start and stop the counter
-static inline void start_timer() { timer = -get_cycle_count(); }
-static inline void stop_timer() { timer += get_cycle_count(); }
+void start_timer() { timer = -get_cycle_count(); }
+void stop_timer() { timer += get_cycle_count(); }
 
 // Get the value of the timer
-static inline int64_t get_timer() { return timer; }
+int64_t get_timer() { return timer; }
 #else
 #define HW_CNT_READY ;
 #define HW_CNT_NOT_READY ;
 // Start and stop the counter
-static inline void start_timer() {
+void start_timer() {
   while (0)
     ;
 }
-static inline void stop_timer() {
+void stop_timer() {
   while (0)
     ;
 }
 
 // Get the value of the timer
-static inline int64_t get_timer() { return 0; }
+int64_t get_timer() { return 0; }
 #endif
 
 #endif // _RUNTIME_H_

@@ -187,6 +187,7 @@ benchmarks_clean:
 
 .PHONY: clean
 clean: riscv_tests_spike_clean benchmarks_clean
+	rm -vf bin/*
 	rm -vf $(BINARIES)
 	rm -vf $(CVA6_BINARIES)
 	rm -vf $(ARA_BINARIES)

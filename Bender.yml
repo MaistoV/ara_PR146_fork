@@ -112,15 +112,15 @@ sources:
         - hardware/jtag/src/ara_soc_jtag.sv
         - hardware/jtag/tb/ara_testharness_jtag.sv
 
-        - target: verilator
-          files:
-            # - hardware/jtag/deps/rocket-chip/src/main/resources/vsrc/SimJTAG.v
-            # # - hardware/jtag/deps/rocket-chip/src/main/resources/vsrc/SimDTM.v
-            # - hardware/jtag/tb/ara_jtag_testharness.sv
-            # - hardware/jtag/tb/verilator/ara_jtag_tb_verilator.sv
+        # - target: verilator
+        #   files:
+        #     # - hardware/jtag/deps/rocket-chip/src/main/resources/vsrc/SimJTAG.v
+        #     # # - hardware/jtag/deps/rocket-chip/src/main/resources/vsrc/SimDTM.v
+        #     # - hardware/jtag/tb/ara_jtag_testharness.sv
+        #     # - hardware/jtag/tb/verilator/ara_jtag_tb_verilator.sv
         
-        # TBD
-        - target: vsim
-          files:
-            # - hardware/jtag/tb/vsim/ara_jtag_tb_vsim.sv
+        # # TBD
+        # - target: vsim
+        #   files:
+        #     # - hardware/jtag/tb/vsim/ara_jtag_tb_vsim.sv
 

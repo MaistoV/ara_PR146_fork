@@ -276,6 +276,11 @@ module operand_requester import ara_pkg::*; import rvv_pkg::*; #(
       automatic vlen_t               effective_vector_body_length;
       automatic vaddr_t              vrf_addr;
 
+      automatic elen_t vl_byte;
+      automatic elen_t vstart_byte;
+      automatic elen_t vector_body_len_byte;
+      automatic elen_t vector_body_len_packets;
+
       // Bank we are currently requesting
       automatic int bank = requester_metadata_q.addr[idx_width(NrBanks)-1:0];
 
@@ -297,6 +302,20 @@ module operand_requester import ara_pkg::*; import rvv_pkg::*; #(
       // Prepare metadata upfront
       // Length of vector body in elements, i.e., vl - vstart
       vector_body_length = operand_request_i[requester_index].vl - operand_request_i[requester_index].vstart;
+
+      // Count the number of packets to fetch if we need to deshuffle.
+      // Slide operations use the vstart signal, which does NOT correspond to the architectural
+      // vstart, only when computing the fetch address. Ara supports architectural vstart > 0
+      // only for memory operations.
+      vl_byte     = operand_request_i[requester_index].vl     << operand_request_i[requester_index].vtype.vsew;
+      vstart_byte = operand_request_i[requester_index].is_slide
+                  ? 0
+                  : operand_request_i[requester_index].vstart << operand_request_i[requester_index].vtype.vsew;
+      vector_body_len_byte = vl_byte - vstart_byte + (vstart_byte % 8);
+      vector_body_len_packets = vector_body_len_byte >> operand_request_i[requester_index].eew;
+      if (vector_body_len_packets << operand_request_i[requester_index].eew < vector_body_len_byte)
+        vector_body_len_packets += 1;
+
       // For memory operations, the number of elements initially refers to the new EEW (vsew here),
       // but the requester_index must refer to the old EEW (eew here)
       // This reasoning cannot be applied also to widening instructions, which modify vsew
@@ -305,11 +324,16 @@ module operand_requester import ara_pkg::*; import rvv_pkg::*; #(
                                    vector_body_length
                                     << operand_request_i[requester_index].vtype.vsew
                                   ) >> operand_request_i[requester_index].eew;
+
+
       // Final computed length
       effective_vector_body_length = ( operand_request_i[requester_index].scale_vl )
-                                      ? scaled_vector_body_length
+                                      ? vector_body_len_packets
                                       : vector_body_length;
+
       // Address of the vstart element of the vector in the VRF
+      // This vstart is NOT the architectural one and was modified in the lane
+      // sequencer to provide the correct start address
       vrf_addr = vaddr(operand_request_i[requester_index].vs, NrLanes)
                   + (
                       operand_request_i[requester_index].vstart
@@ -428,7 +452,7 @@ module operand_requester import ara_pkg::*; import rvv_pkg::*; #(
                 if (requester_metadata_d.len == '0) begin : req_zero_rescaled_vl
                   requester_metadata_d.len = 1;
                 end : req_zero_rescaled_vl
-                
+
                 // Mute the requisition if the vl is zero
                 if (operand_request_i[requester_index].vl == '0) begin : zero_vl
                   state_d                              = IDLE;
@@ -437,22 +461,22 @@ module operand_requester import ara_pkg::*; import rvv_pkg::*; #(
               end : op_req_valid
             end : req_finished
           end : op_queue_ready
-
-          // Kill all requests in case of exceptions
-          // NOTE: only the VSTU can generate exceptions mid-way through a VRF read
-          if ( ( requester_index == StA ) 
-                & stu_exception_i 
-              ) begin : vstu_exception
-            // TODO: this goes to the rr_arb_trees below, needs to be flushed from there
-            // Flush this request
-            operand_req[bank][requester_index] = '0;
-            // Clear metadata
-            requester_metadata_d = '0;
-          end : vstu_exception
         end : state_q_REQUESTING
       endcase // state_q
       // Always keep the hazard bits up to date with the global hazard table
       requester_metadata_d.hazard &= global_hazard_table_i[requester_metadata_d.id];
+
+      // Kill all store-unit requests in case of exceptions
+      if (stu_exception_i && (requester_index == StA)) begin : vstu_exception_idle
+        // Reset state
+        state_d = IDLE;
+        // Don't wake up the store queue (redundant, as it will be flushed anyway)
+        operand_queue_cmd_valid_o[StA] = 1'b0;
+        // Clear metadata
+        requester_metadata_d = '0;
+        // Flush this request
+        operand_req[bank][StA] = '0;
+      end : vstu_exception_idle
     end : operand_requester
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
